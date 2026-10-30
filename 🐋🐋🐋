@@ -333,7 +333,7 @@ end)()
 ENV.__beamHue = ENV.__beamHue or 0
 
 local EMBEDDED_UI_SOURCE = [==[
---[[ Azurite v4 â dense in-game UI library (Linoria/Evenesce style) ]]
+--[[ Azurite v4 — dense in-game UI library (Linoria/Evenesce style) ]]
 local BASE = "https://raw.githubusercontent.com/%s/Azurite/main/library/"
 BASE = string.format(BASE, "kio6z")
 
@@ -824,7 +824,7 @@ function UILib:Window(config)
 		if titleLbl then TweenService:Create(titleLbl, TweenInfo.new(0.26, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextTransparency = 0 }):Play() end
 		TweenService:Create(bodyLbl, TweenInfo.new(0.26, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { TextTransparency = 0 }):Play()
 
-		-- TIMER: a single linear tween, pausable â no per-frame loop, no stutter
+		-- TIMER: a single linear tween, pausable — no per-frame loop, no stutter
 		local progTween = TweenService:Create(prog, TweenInfo.new(duration, Enum.EasingStyle.Linear), { Size = UDim2.new(0,0,1,0) })
 		progTween:Play()
 
@@ -4007,6 +4007,13 @@ API.getCursorPos = function()
 end
 
 API.getAimReferencePoint = function()
+    -- Mobile aiming uses the screen center consistently with the viewport
+    -- projection used by WorldToViewportPoint. Desktop keeps the real cursor.
+    local cam = workspace.CurrentCamera or Player.Camera
+    if ENV.CONFIG.mobileMode and cam then
+        local viewport = cam.ViewportSize
+        return Vector2.new(viewport.X * 0.5, viewport.Y * 0.5)
+    end
     return API.getCursorPos()
 end
 
@@ -4482,8 +4489,10 @@ API.GetBulletOrigin = function()
 end
 
 API.toScreen = function(part)
-    local pos, visible = Player.Camera:WorldToViewportPoint(part.Position)
-    return Vector2.new(pos.X, pos.Y), visible
+    local cam = workspace.CurrentCamera or Player.Camera
+    if not cam or not part then return Vector2.zero, false end
+    local pos, visible = cam:WorldToViewportPoint(part.Position)
+    return Vector2.new(pos.X, pos.Y), visible and pos.Z > 0
 end
 
 API.hasLineOfSight = function(part)
@@ -4498,7 +4507,9 @@ API.hasLineOfSight = function(part)
     params.FilterDescendantsInstances = { char, targetModel }
     params.IgnoreWater = true
 
-    local origin = Player.Camera.CFrame.Position
+    local cam = workspace.CurrentCamera or Player.Camera
+    if not cam then return false end
+    local origin = cam.CFrame.Position
     local result = workspace:Raycast(origin, part.Position - origin, params)
 
     if not result then return true end
@@ -4586,27 +4597,29 @@ local RAGE_SELECTORS = {
 }
 
 API.getTargetRageMode = function()
-    local selector = RAGE_SELECTORS[ENV.CONFIG.selectType] or RAGE_SELECTORS.closest
+    -- Rage Mode may ignore FOV, but it still respects team, life, visibility,
+    -- immunity and the user's distance limit.
+    local selector = SELECTORS[ENV.CONFIG.selectType] or SELECTORS.closest
     local entries  = {}
-
+    local camera = workspace.CurrentCamera or Player.Camera
+    if not camera then return nil end
+    local center = API.getAimReferencePoint()
     local players = API.getCandidates()
     for _, plr in ipairs(players) do
         local part = API.getTargetPart(plr)
-        if not part then continue end
-        
+        if not part or not part:IsA("BasePart") then continue end
+        local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
+        if not onScreen or screenPos.Z <= 0 then continue end
+        local dist3D = (part.Position - camera.CFrame.Position).Magnitude
+        if ENV.CONFIG.checkDistance and dist3D > (ENV.CONFIG.maxDistance or 650) then continue end
         if not API.hasLineOfSight(part) then continue end
-        local screenPos, onScreen = API.toScreen(part)
-        local screenDist = onScreen and (screenPos - API.getAimReferencePoint()).Magnitude or math.huge
-        local dist3D = (part.Position - Player.Camera.CFrame.Position).Magnitude
-        
         table.insert(entries, {
             player = plr,
             part = part,
-            screenDist = screenDist,
+            screenDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude,
             dist3D = dist3D,
         })
     end
-
     if #entries == 0 then return nil end
     table.sort(entries, selector)
     local best = entries[1]
@@ -4630,8 +4643,10 @@ API.getTarget = function()
             or 0
         if dist > ENV.CONFIG.FOVRadius + jitterPad then continue end
         if ENV.CONFIG.checkDistance then
-            local dist3D = (part.Position - Player.Camera.CFrame.Position).Magnitude
-            if dist3D > ENV.CONFIG.maxDistance then continue end
+            local cam = workspace.CurrentCamera or Player.Camera
+            if not cam then continue end
+            local dist3D = (part.Position - cam.CFrame.Position).Magnitude
+            if dist3D > (ENV.CONFIG.maxDistance or 650) then continue end
         end
         if not API.hasLineOfSight(part) then continue end
         table.insert(entries, { player=plr, part=part, screenDist=dist })
@@ -4644,21 +4659,31 @@ API.getTarget = function()
 end
 
 
-API.smoothLookAt = function(targetPos)
-    local cam  = Player.Camera
-    local goal = CFrame.lookAt(cam.CFrame.Position, targetPos)
-    if ENV.CONFIG.jitterEnabled then
-        goal = API.applyJitter(goal)
-    end
-    cam.CFrame = cam.CFrame:Lerp(goal, 1 - (ENV.CONFIG.smoothing or 0.2))
+API.smoothLookAt = function(targetPos, deltaTime)
+    local cam = workspace.CurrentCamera or Player.Camera
+    if not cam or not targetPos then return end
+    local current = cam.CFrame
+    local origin = current.Position
+    local direction = targetPos - origin
+    if direction.Magnitude < 1e-4 then return end
+    local goal = CFrame.lookAt(origin, targetPos)
+    if ENV.CONFIG.jitterEnabled then goal = API.applyJitter(goal) end
+
+    -- Time-based exponential smoothing makes the feel consistent across FPS.
+    local smoothing = math.clamp(ENV.CONFIG.smoothing or 0.2, 0, 1)
+    local rate = 1.5 + (1 - smoothing) * 28
+    local dt = math.clamp(deltaTime or (1/60), 0, 1/15)
+    local alpha = 1 - math.exp(-rate * dt)
+    cam.CFrame = current:Lerp(goal, math.clamp(alpha, 0, 1))
 end
 
 API.instantLookAt = function(targetPos)
-    local cam  = Player.Camera
-    local goal = CFrame.lookAt(cam.CFrame.Position, targetPos)
-    if ENV.CONFIG.jitterEnabled then
-        goal = API.applyJitter(goal)
-    end
+    local cam = workspace.CurrentCamera or Player.Camera
+    if not cam or not targetPos then return end
+    local origin = cam.CFrame.Position
+    if (targetPos - origin).Magnitude < 1e-4 then return end
+    local goal = CFrame.lookAt(origin, targetPos)
+    if ENV.CONFIG.jitterEnabled then goal = API.applyJitter(goal) end
     cam.CFrame = goal
 end
 
@@ -4873,23 +4898,70 @@ local Groups = {
 
 Groups.Aimbot:Toggle("Aimbot", ENV.CONFIG.aimbotEnabled, function(v)
     ENV.CONFIG.aimbotEnabled = v
+    if not v then API._aimLockedPlayer = nil end
 end, { Flag="aimbotEnabled", Keybind=Enum.KeyCode.T, KeybindMode="Toggle" })
     :OnEnabled(function() Window:Notify("Aimbot enabled!", NS) end)
     :OnDisabled(function()
         Window:Notify("Aimbot disabled!", NW)
-        API._aimInit = false
+        API._aimLockedPlayer = nil
     end)
-    :OnRender(function()
-        if not ENV.CONFIG.aimbotEnabled then return end
-        local target, dist, part
-        if ENV.CONFIG.rageMode then
-            target, dist, part = API.getTargetRageMode()
-            if part then API.instantLookAt(part.Position) end
+
+-- One camera writer, after Roblox's default camera update. This avoids the
+-- UI OnRender loop competing with the camera controller.
+local MOHG_AIM_RENDER = "MohgUniversalAimbotCamera"
+pcall(function() Services.RunService:UnbindFromRenderStep(MOHG_AIM_RENDER) end)
+API._aimLockedPlayer = nil
+Services.RunService:BindToRenderStep(MOHG_AIM_RENDER, Enum.RenderPriority.Camera.Value + 1, function(dt)
+    if not ENV.CONFIG.aimbotEnabled then
+        API._aimLockedPlayer = nil
+        return
+    end
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+
+    local target, _, part
+    if ENV.CONFIG.rageMode then
+        target, _, part = API.getTargetRageMode()
+    else
+        target, _, part = API.getTarget()
+    end
+
+    -- Keep the current target when it remains valid; this reduces rapid
+    -- target switching when multiple players are close together.
+    local locked = API._aimLockedPlayer
+    if locked and locked.Parent == Services.Players and API.isAlive(locked) and API.isEnemy(locked) and not API.isImmune(locked) then
+        local lockedPart = API.getTargetPart(locked)
+        if lockedPart and lockedPart:IsA("BasePart") then
+            local projected, onScreen = camera:WorldToViewportPoint(lockedPart.Position)
+            local dist2D = onScreen and projected.Z > 0
+                and (Vector2.new(projected.X, projected.Y) - API.getAimReferencePoint()).Magnitude or math.huge
+            local dist3D = (lockedPart.Position - camera.CFrame.Position).Magnitude
+            local distanceOK = (not ENV.CONFIG.checkDistance) or dist3D <= (ENV.CONFIG.maxDistance or 650)
+            local fovLimit = (ENV.CONFIG.FOVRadius or 90) * 1.35
+            local fovOK = ENV.CONFIG.rageMode or dist2D <= fovLimit
+            if onScreen and projected.Z > 0 and distanceOK and fovOK and API.hasLineOfSight(lockedPart) then
+                target, part = locked, lockedPart
+            else
+                API._aimLockedPlayer = nil
+            end
         else
-            target, dist, part = API.getTarget()
-            if part then API.smoothLookAt(part.Position) end
+            API._aimLockedPlayer = nil
         end
-    end)
+    else
+        API._aimLockedPlayer = nil
+    end
+
+    if not target or not part then
+        API._aimLockedPlayer = nil
+        return
+    end
+    API._aimLockedPlayer = target
+    if ENV.CONFIG.rageMode then
+        API.instantLookAt(part.Position)
+    else
+        API.smoothLookAt(part.Position, dt)
+    end
+end)
 
 regToggle(Groups.Aimbot, "Rage Mode", "rageAimbot", "rageMode")
 
@@ -5405,4 +5477,3 @@ task.delay(1.25, function()
         Window:DockUtilityPanels(Categories.Players, Categories.Keybinds, Categories.Shortcuts)
     end)
 end)
-
