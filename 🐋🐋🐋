@@ -4538,24 +4538,36 @@ API.toScreen = function(part)
     return Vector2.new(pos.X, pos.Y), visible and pos.Z > 0
 end
 
+-- Strict visibility test for AimAssist: only allow camera movement toward a
+-- target when the first ray hit belongs to that target. Any queryable object
+-- between the camera and target (including non-collidable barriers/glass) blocks it.
 API.hasLineOfSight = function(part)
-    if not part or not part:IsA("BasePart") then return false end
+    if not part or not part:IsA("BasePart") or not part:IsDescendantOf(workspace) then
+        return false
+    end
+
     local char = Player.Local.Character
     local targetModel = part:FindFirstAncestorOfClass("Model")
     local cam = workspace.CurrentCamera or Player.Camera
     if not char or not targetModel or not cam then return false end
 
+    local origin = cam.CFrame.Position
+    local direction = part.Position - origin
+    if direction.Magnitude <= 1e-4 then return true end
+
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
     params.FilterDescendantsInstances = { char, cam }
     params.IgnoreWater = true
-    params.RespectCanCollide = true
+    -- Do not set RespectCanCollide: queryable barriers that do not collide
+    -- physically should still prevent AimAssist from tracking through them.
+    params.RespectCanCollide = false
 
-    local origin = cam.CFrame.Position
-    local result = workspace:Raycast(origin, part.Position - origin, params)
+    local result = workspace:Raycast(origin, direction, params)
+    -- If the ray hits nothing, treat it as clear (some games make character
+    -- parts non-queryable). If it hits something else first, the target is occluded.
     if not result then return true end
-    if result.Instance:IsDescendantOf(targetModel) then return true end
-    return result.Instance.Transparency >= 0.95 or not result.Instance.CanCollide
+    return result.Instance:IsDescendantOf(targetModel)
 end
 
 
