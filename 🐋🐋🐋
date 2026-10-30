@@ -1499,23 +1499,40 @@ function UILib:Window(config)
 		local tabIco
 		if catIcon then tabIco = new("ImageLabel", { BackgroundTransparency=1, Position=UDim2.new(0,9,0.5,-8), Size=UDim2.new(0,16,0,16), Image=catIcon, ImageColor3=T.SubText, ZIndex=3, Parent=tab }) end
 		local page = new("Frame", { Name=name, BackgroundTransparency=1, Position=UDim2.new(0,10,0,colTop), Size=UDim2.new(1,-20,1,-colTop-8), Visible=false, Parent=content })
-		local leftCol = new("ScrollingFrame", { Name="Left", Active=true, ScrollingEnabled=true, ScrollingDirection=Enum.ScrollingDirection.Y, ElasticBehavior=Enum.ElasticBehavior.Always, ClipsDescendants=true, BackgroundTransparency=1, BorderSizePixel=0, Position=UDim2.new(0,0,0,0), Size=UDim2.new(0.5,-5,1,0), ScrollBarThickness=0, CanvasSize=UDim2.new(), AutomaticCanvasSize=Enum.AutomaticSize.Y, Parent=page })
-		local leftLayout = new("UIListLayout", { SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0,10), Parent=leftCol })
-		new("UIPadding", { PaddingBottom=UDim.new(0,30), Parent=leftCol })
-		local rightCol = new("ScrollingFrame", { Name="Right", Active=true, ScrollingEnabled=true, ScrollingDirection=Enum.ScrollingDirection.Y, ElasticBehavior=Enum.ElasticBehavior.Always, ClipsDescendants=true, BackgroundTransparency=1, BorderSizePixel=0, Position=UDim2.new(0.5,5,0,0), Size=UDim2.new(0.5,-5,1,0), ScrollBarThickness=0, CanvasSize=UDim2.new(), AutomaticCanvasSize=Enum.AutomaticSize.Y, Parent=page })
-		local rightLayout = new("UIListLayout", { SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0,10), Parent=rightCol })
-		new("UIPadding", { PaddingBottom=UDim.new(0,30), Parent=rightCol })
-		-- Keep a little extra scroll range so the final controls are reachable on mobile.
-		local function updateColumnCanvas(col, layout)
-			local function update()
-				col.CanvasSize = UDim2.new(0, 0, 0, math.max(col.AbsoluteSize.Y, layout.AbsoluteContentSize.Y + 30))
+		local function makeColumn(columnName, position)
+			local col = new("ScrollingFrame", {
+				Name=columnName, Active=true, Selectable=true, ScrollingEnabled=true,
+				ScrollingDirection=Enum.ScrollingDirection.Y, ElasticBehavior=Enum.ElasticBehavior.Always,
+				BackgroundTransparency=1, BorderSizePixel=0, Position=position,
+				Size=UDim2.new(0.5,-5,1,0), ScrollBarThickness=3,
+				CanvasSize=UDim2.new(0,0,0,0), AutomaticCanvasSize=Enum.AutomaticSize.None,
+				Parent=page
+			})
+			local layout = new("UIListLayout", { SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0,10), Parent=col })
+			new("UIPadding", { PaddingTop=UDim.new(0,2), PaddingBottom=UDim.new(0,42), Parent=col })
+			-- Use one explicit canvas-size source; AutomaticCanvasSize can conflict with manual sizing.
+			local queued = false
+			local function updateCanvas()
+				if queued then return end
+				queued = true
+				task.defer(function()
+					queued = false
+					if not col.Parent then return end
+					local contentHeight = layout.AbsoluteContentSize.Y + 48
+					local viewportHeight = col.AbsoluteWindowSize.Y
+					col.CanvasSize = UDim2.new(0,0,0,math.max(contentHeight, viewportHeight))
+				end)
 			end
-			layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(update)
-			col:GetPropertyChangedSignal("AbsoluteSize"):Connect(update)
-			task.defer(update)
+			layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvas)
+			col:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateCanvas)
+			col.ChildAdded:Connect(updateCanvas)
+			col.ChildRemoved:Connect(updateCanvas)
+			page:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateCanvas)
+			updateCanvas()
+			return col
 		end
-		updateColumnCanvas(leftCol, leftLayout)
-		updateColumnCanvas(rightCol, rightLayout)
+		local leftCol = makeColumn("Left", UDim2.new(0,0,0,0))
+		local rightCol = makeColumn("Right", UDim2.new(0.5,5,0,0))
 		for _, col in ipairs({ leftCol, rightCol }) do
 			local fade = new("Frame", { BackgroundColor3=T.Base, BorderSizePixel=0, AnchorPoint=Vector2.new(0.5,1), Position=UDim2.new(0.5,0,1,0), Size=UDim2.new(1,4,0,26), BackgroundTransparency=1, ZIndex=8, Parent=page })
 			fade.Position = (col == leftCol) and UDim2.new(0.25,0,1,0) or UDim2.new(0.75,0,1,0)
