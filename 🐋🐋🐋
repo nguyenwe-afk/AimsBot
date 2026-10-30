@@ -372,7 +372,7 @@ local PlayerGui = cloneref(LocalPlayer:FindFirstChildWhichIsA("PlayerGui") or Lo
 local Theme = {
 	Base=Color3.fromRGB(16,16,21), Top=Color3.fromRGB(18,18,23), Side=Color3.fromRGB(19,19,25),
 	Group=Color3.fromRGB(21,21,27), Element=Color3.fromRGB(15,15,20), ElementHov=Color3.fromRGB(30,30,38),
-	Input=Color3.fromRGB(15,15,20), Accent=Color3.fromRGB(120,190,245), AccentDim=Color3.fromRGB(83,153,211),
+	Input=Color3.fromRGB(15,15,20), Accent=Color3.fromRGB(80,196,255), AccentDim=Color3.fromRGB(60,92,255),
 	Text=Color3.fromRGB(230,230,236), SubText=Color3.fromRGB(150,150,165), Muted=Color3.fromRGB(111,111,125),
 	Off=Color3.fromRGB(43,43,53), Stroke=Color3.fromRGB(42,42,51), StrokeSub=Color3.fromRGB(33,33,41),
 	Warn=Color3.fromRGB(255,176,32), Good=Color3.fromRGB(90,210,140), Bad=Color3.fromRGB(230,106,106),
@@ -509,7 +509,7 @@ function UILib:Window(config)
 		if not color then table.insert(_strokeReg, st) end
 		return st
 	end
-	local aLo = Color3.fromRGB(145,205,250); local aHi = Color3.fromRGB(85,160,220)
+	local aLo = Color3.fromRGB(80,196,255); local aHi = Color3.fromRGB(60,92,255)
 	if config.Accent then aLo = config.Accent:Lerp(Color3.new(1,1,1),0.2); aHi = config.Accent:Lerp(Color3.new(0,0,0),0.12) end T.Accent = aLo; T.AccentDim = aHi
 	local function accentGrad(parent, rot)
 		local g = new("UIGradient", { Name="AG", Color=ColorSequence.new(aLo,aHi), Rotation=rot or 40, Parent=parent })
@@ -686,7 +686,7 @@ function UILib:Window(config)
 	local icon = new("ImageLabel", { Name="Icon", BackgroundTransparency=1, Position=UDim2.new(0,12,0.5,-12), Size=UDim2.new(0,24,0,24), ZIndex=3, Image=config.Icon or DEFAULT_ICON, Parent=top })
 	corner(icon, 6); Window.Icon = icon; skinTag(icon, "icon")
 	local hasSub = (config.Subtitle ~= nil and config.Subtitle ~= "")
-	skinTag(new("TextLabel", { BackgroundTransparency=1, Position=UDim2.new(0,44,0.5, hasSub and -13 or -8), Size=UDim2.new(0,200,0,16), Font=T.FontBold, Text=config.Title or "OrcaX 🐋", TextColor3=T.Text, TextSize=14, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3, Parent=top }), "text")
+	skinTag(new("TextLabel", { BackgroundTransparency=1, Position=UDim2.new(0,44,0.5, hasSub and -13 or -8), Size=UDim2.new(0,200,0,16), Font=T.FontBold, Text=config.Title or "OrcaX", TextColor3=T.Text, TextSize=14, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3, Parent=top }), "text")
 	local subLbl
 	if hasSub then
 		subLbl = new("TextLabel", { Name="Subtitle", BackgroundTransparency=1, Position=UDim2.new(0,44,0.5,3), Size=UDim2.new(0,200,0,12), Font=T.Font, Text=tostring(config.Subtitle), TextColor3=T.Muted, TextSize=10, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3, Parent=top })
@@ -695,7 +695,7 @@ function UILib:Window(config)
 	function Window:SetSubtitle(txt)
 		if subLbl then subLbl.Text = tostring(txt or "") end
 	end
-	local crumb = new("TextLabel", { Name="Crumb", BackgroundTransparency=1, Position=UDim2.new(0, 44 + (#(config.Title or "OrcaX 🐋"))*9 + 14, 0.5, -6), Size=UDim2.new(0,260,0,16), Font=T.Font, Text="", TextColor3=T.Muted, TextSize=11, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3, Parent=top })
+	local crumb = new("TextLabel", { Name="Crumb", BackgroundTransparency=1, Position=UDim2.new(0, 44 + (#(config.Title or "OrcaX"))*9 + 14, 0.5, -6), Size=UDim2.new(0,260,0,16), Font=T.Font, Text="", TextColor3=T.Muted, TextSize=11, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=3, Parent=top })
 	local function topBtn(char, xoff, color)
 		local b = new("TextButton", { BackgroundColor3=T.ElementHov, BackgroundTransparency=1, BorderSizePixel=0, AnchorPoint=Vector2.new(1,0.5), Position=UDim2.new(1,xoff,0.5,0), Size=UDim2.new(0,26,0,26), Font=T.FontBold, Text=char, TextColor3=T.Muted, TextSize=15, AutoButtonColor=false, ZIndex=3, Parent=top })
 		corner(b, 5); skinTag(b, "muted"); table.insert(Window._recolor, function() if b.BackgroundTransparency == 1 then b.TextColor3 = T.Muted end end)
@@ -937,7 +937,7 @@ function UILib:Window(config)
 		local dlg = new("Frame", { BackgroundColor3=T.Base, BorderSizePixel=0, AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), Size=UDim2.fromOffset(opts.Width or 300,0), AutomaticSize=Enum.AutomaticSize.Y, ZIndex=95, Parent=ov })
 		corner(dlg, 10); bgGrad(dlg, Color3.fromRGB(34,34,44), Color3.fromRGB(18,18,24)); pad(dlg, 16,14,16,16); skinTag(dlg, "group")
 		new("UIListLayout", { SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0,8), Parent=dlg })
-		skinTag(new("TextLabel", { BackgroundTransparency=1, Size=UDim2.new(1,0,0,18), Font=T.FontBold, Text=opts.Title or "OrcaX 🐋", TextColor3=T.Text, TextSize=15, TextXAlignment=Enum.TextXAlignment.Left, LayoutOrder=1, ZIndex=95, Parent=dlg }), "text")
+		skinTag(new("TextLabel", { BackgroundTransparency=1, Size=UDim2.new(1,0,0,18), Font=T.FontBold, Text=opts.Title or "OrcaX", TextColor3=T.Text, TextSize=15, TextXAlignment=Enum.TextXAlignment.Left, LayoutOrder=1, ZIndex=95, Parent=dlg }), "text")
 		if opts.Text then
 			skinTag(new("TextLabel", { BackgroundTransparency=1, Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, Font=T.Font, Text=opts.Text, TextColor3=T.SubText, TextSize=12, TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left, LayoutOrder=2, ZIndex=95, Parent=dlg }), "sub")
 		end
@@ -1016,8 +1016,8 @@ function UILib:Window(config)
 		tween(ov, E_OUT, { BackgroundTransparency=0.45 })
 		local dlg = new("Frame", { BackgroundColor3=T.Base, BorderSizePixel=0, AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), Size=UDim2.fromOffset(272,128), ZIndex=91, Parent=ov })
 		corner(dlg, 10); bgGrad(dlg, Color3.fromRGB(24,24,30), Color3.fromRGB(14,14,18)); pad(dlg, 16,14,16,16)
-		new("TextLabel", { BackgroundTransparency=1, Size=UDim2.new(1,0,0,18), Font=T.FontBold, Text="Close OrcaX 🐋?", TextColor3=T.Text, TextSize=15, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=91, Parent=dlg })
-		new("TextLabel", { BackgroundTransparency=1, Position=UDim2.new(0,0,0,26), Size=UDim2.new(1,0,0,40), Font=T.Font, Text="This will remove the entire OrcaX 🐋 interface. This can't be undone.", TextColor3=T.SubText, TextSize=12, TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left, TextYAlignment=Enum.TextYAlignment.Top, ZIndex=91, Parent=dlg })
+		new("TextLabel", { BackgroundTransparency=1, Size=UDim2.new(1,0,0,18), Font=T.FontBold, Text="Close OrcaX?", TextColor3=T.Text, TextSize=15, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=91, Parent=dlg })
+		new("TextLabel", { BackgroundTransparency=1, Position=UDim2.new(0,0,0,26), Size=UDim2.new(1,0,0,40), Font=T.Font, Text="This will remove the entire OrcaX interface. This can't be undone.", TextColor3=T.SubText, TextSize=12, TextWrapped=true, TextXAlignment=Enum.TextXAlignment.Left, TextYAlignment=Enum.TextYAlignment.Top, ZIndex=91, Parent=dlg })
 		local cancel = new("TextButton", { BackgroundColor3=T.Element, BorderSizePixel=0, AnchorPoint=Vector2.new(0,1), Position=UDim2.new(0,0,1,0), Size=UDim2.new(0.5,-4,0,30), Font=T.FontMed, Text="Cancel", TextColor3=T.SubText, TextSize=12, AutoButtonColor=false, ZIndex=91, Parent=dlg }); corner(cancel,6)
 		local conf = new("TextButton", { BackgroundColor3=T.Bad, BorderSizePixel=0, AnchorPoint=Vector2.new(1,1), Position=UDim2.new(1,0,1,0), Size=UDim2.new(0.5,-4,0,30), Font=T.FontMed, Text="Close", TextColor3=Color3.new(1,1,1), TextSize=12, AutoButtonColor=false, ZIndex=91, Parent=dlg }); corner(conf,6)
 		tween(dlg, E_POP, { Size=UDim2.fromOffset(300,142) })
@@ -2458,7 +2458,7 @@ function UILib:Window(config)
 	local watermark = new("Frame", { Name="Watermark", BackgroundColor3=T.Top, BorderSizePixel=0, AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,0,8), Size=UDim2.new(0,220,0,28), Visible = config.Watermark ~= false, ZIndex=45, Parent=gui })
 	corner(watermark, 8); bgGrad(watermark, Color3.fromRGB(26,26,32), Color3.fromRGB(16,16,21)); skinTag(watermark, "float")
 	skinTag(new("ImageLabel", { BackgroundTransparency=1, Position=UDim2.new(0,11,0.5,-7), Size=UDim2.new(0,14,0,14), Image=config.Icon or DEFAULT_ICON, ImageColor3=Color3.new(1,1,1), ZIndex=45, Parent=watermark }), "icon")
-	local wmText = new("TextLabel", { BackgroundTransparency=1, RichText=true, Position=UDim2.new(0,32,0,0), Size=UDim2.new(1,-42,1,0), Font=T.FontMed, Text="OrcaX 🐋", TextColor3=T.SubText, TextSize=12, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=45, Parent=watermark })
+	local wmText = new("TextLabel", { BackgroundTransparency=1, RichText=true, Position=UDim2.new(0,32,0,0), Size=UDim2.new(1,-42,1,0), Font=T.FontMed, Text="OrcaX", TextColor3=T.SubText, TextSize=12, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=45, Parent=watermark })
 	task.spawn(function()
 		local RunService=game:GetService("RunService"); local Stats=game:GetService("Stats")
 		local frames, acc = 0, 0
@@ -2474,7 +2474,7 @@ function UILib:Window(config)
 			local nameHex = (Window._skin=="light") and "#14141c" or "#ffffff"
 			local sepHex = (Window._skin=="light") and "#9a9caa" or "#6a6a78"
 			wmText.TextColor3 = T.SubText
-			wmText.Text=(('<font color="%s">OrcaX 🐋</font>   <font color="%s">|</font>   %d fps   <font color="%s">|</font>   %d ms   <font color="%s">|</font>   %s'):format(nameHex, sepHex, fps, sepHex, ping, sepHex, os.date("%H:%M")))
+			wmText.Text=(('<font color="%s">OrcaX</font>   <font color="%s">|</font>   %d fps   <font color="%s">|</font>   %d ms   <font color="%s">|</font>   %s'):format(nameHex, sepHex, fps, sepHex, ping, sepHex, os.date("%H:%M")))
 			watermark.Size=UDim2.new(0, math.clamp(wmText.TextBounds.X+46,180,340),0,28)
 		end
 	end)
@@ -2504,7 +2504,7 @@ function UILib:Window(config)
 	skinTag(new("TextLabel", { BackgroundTransparency=1, Size=UDim2.new(1,0,0,15), Font=T.Font, Text="Accent", TextColor3=T.SubText, TextSize=12, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=58, Parent=themeRow }), "sub")
 	local sw = new("Frame", { BackgroundTransparency=1, Position=UDim2.new(0,0,0,19), Size=UDim2.new(1,0,0,18), ZIndex=58, Parent=themeRow })
 	new("UIListLayout", { FillDirection=Enum.FillDirection.Horizontal, SortOrder=Enum.SortOrder.LayoutOrder, Padding=UDim.new(0,8), Parent=sw })
-	local presets = { {Color3.fromRGB(150,120,255),Color3.fromRGB(200,86,242)}, {Color3.fromRGB(80,196,255),Color3.fromRGB(60,92,255)}, {Color3.fromRGB(255,108,142),Color3.fromRGB(224,38,96)}, {Color3.fromRGB(96,240,150),Color3.fromRGB(32,190,116)}, {Color3.fromRGB(255,210,86),Color3.fromRGB(247,148,34)} }
+	local presets = { {Color3.fromRGB(80,196,255),Color3.fromRGB(60,92,255)}, {Color3.fromRGB(150,120,255),Color3.fromRGB(200,86,242)}, {Color3.fromRGB(255,108,142),Color3.fromRGB(224,38,96)}, {Color3.fromRGB(96,240,150),Color3.fromRGB(32,190,116)}, {Color3.fromRGB(255,210,86),Color3.fromRGB(247,148,34)} }
 	for pi, pr in ipairs(presets) do
 		local b = new("TextButton", { LayoutOrder=pi, BackgroundColor3=Color3.new(1,1,1), BorderSizePixel=0, Size=UDim2.new(0,18,0,18), Text="", AutoButtonColor=false, ZIndex=58, Parent=sw }); corner(b, 5)
 		new("UIGradient", { Color=ColorSequence.new(pr[1],pr[2]), Rotation=40, Parent=b })
@@ -2614,7 +2614,7 @@ function UILib:Window(config)
 	setHost = secKeys
 	setKeybindRow("Command bar key", config.CommandKey or Enum.KeyCode.Semicolon, function(k) Window._cmdKey = k end, 10.5, "Command bar")
 	setHost = secStyle
-	setToggleRow("Rainbow accent", true, function(v) Window._rainbow = v end, 11)
+	setToggleRow("Rainbow accent", false, function(v) Window._rainbow = v end, 11)
 	setHost = secWindow
 	do -- skin selector
 		local r = new("Frame", { BackgroundTransparency=1, Size=UDim2.new(1,0,0,40), LayoutOrder=4.5, ZIndex=58, Parent=secStyle })
@@ -2829,7 +2829,7 @@ function UILib:Window(config)
 		tween(ov, E_OUT, { BackgroundTransparency=0.1 })
 		local bx = new("Frame", { BackgroundTransparency=1, AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), Size=UDim2.new(0,180,0,96), ZIndex=81, Parent=ov })
 		local ic = new("ImageLabel", { BackgroundTransparency=1, AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,0,0), Size=UDim2.new(0,0,0,0), Image=config.Icon or DEFAULT_ICON, ImageColor3=Color3.fromRGB(99,184,255), ZIndex=81, Parent=bx })
-		local title = new("TextLabel", { BackgroundTransparency=1, Position=UDim2.new(0,0,0,50), Size=UDim2.new(1,0,0,22), Font=T.FontBold, Text="OrcaX 🐋", TextColor3=Color3.fromRGB(99,184,255), TextSize=18, TextTransparency=1, ZIndex=81, Parent=bx })
+		local title = new("TextLabel", { BackgroundTransparency=1, Position=UDim2.new(0,0,0,50), Size=UDim2.new(1,0,0,22), Font=T.FontBold, Text="OrcaX", TextColor3=Color3.fromRGB(99,184,255), TextSize=18, TextTransparency=1, ZIndex=81, Parent=bx })
 		local barBg = new("Frame", { BackgroundColor3=T.Off, BorderSizePixel=0, AnchorPoint=Vector2.new(0.5,0), Position=UDim2.new(0.5,0,0,80), Size=UDim2.new(0,120,0,3), BackgroundTransparency=1, ZIndex=81, Parent=bx }); corner(barBg,2)
 		local barFill = new("Frame", { BackgroundColor3=Color3.fromRGB(99,184,255), BorderSizePixel=0, Size=UDim2.new(0,0,1,0), ZIndex=81, Parent=barBg }); corner(barFill,2)
 		tween(ic, E_POP, { Size=UDim2.new(0,42,0,42) }); tween(ic, TweenInfo.new(0.85,Enum.EasingStyle.Quint,Enum.EasingDirection.Out), { Rotation=360 })
@@ -3435,7 +3435,7 @@ if not UILib then
 end
 
 Window = UILib:Window({
-    Title    = "OrcaX🐋",
+    Title    = "OrcaX",
     Subtitle = "Private",
     AutoSave = true,
 })
@@ -5255,9 +5255,22 @@ do
         while next(SKYBOXES) == nil and os.clock() < deadline do task.wait(0.2) end
         if next(SKYBOXES) ~= nil and skyboxDropdown then
             local names = {"None"}
-            for name in pairs(SKYBOXES) do table.insert(names, name) end
+            local blueSkyName
+            for name in pairs(SKYBOXES) do
+                table.insert(names, name)
+                local lowerName = string.lower(tostring(name))
+                if not blueSkyName and (string.find(lowerName, "blue sky", 1, true) or string.find(lowerName, "blue", 1, true)) then
+                    blueSkyName = name
+                end
+            end
             table.sort(names)
             pcall(function() skyboxDropdown:SetOptions(names) end)
+            -- Apply a blue-sky preset on each script/menu startup when one exists.
+            -- API.applySkybox captures the current in-game sky first, so "None" can restore it.
+            if blueSkyName and SKYBOXES[blueSkyName] then
+                pcall(function() skyboxDropdown:Set(blueSkyName) end)
+                API.applySkybox(SKYBOXES[blueSkyName])
+            end
         end
     end)
 end
