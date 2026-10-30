@@ -3697,9 +3697,35 @@ API.pickNamedPart = function(char, partName)
 end
 
 API.getTargetPart = function(plr)
+    -- Robust target-part lookup for games that use different avatar rigs
+    -- (including FPS experiences with non-standard R6/R15 character layouts).
     local char = API.getChar(plr)
     if not char then return nil end
-    return API.pickNamedPart(char, ENV.CONFIG.aimbotTargetPart)
+
+    local requested = ENV.CONFIG.aimbotTargetPart or "Head"
+    local aliases = {
+        ["Torso"] = {"UpperTorso", "Torso", "LowerTorso", "HumanoidRootPart"},
+        ["UpperTorso"] = {"UpperTorso", "Torso", "LowerTorso", "HumanoidRootPart"},
+        ["LowerTorso"] = {"LowerTorso", "Torso", "UpperTorso", "HumanoidRootPart"},
+        ["Head"] = {"Head", "UpperTorso", "Torso", "HumanoidRootPart"},
+        ["HumanoidRootPart"] = {"HumanoidRootPart", "UpperTorso", "Torso", "Head"},
+        ["Left_arm"] = {"LeftHand", "LeftLowerArm", "LeftUpperArm", "Left Arm", "UpperTorso", "Torso"},
+        ["Right_arm"] = {"RightHand", "RightLowerArm", "RightUpperArm", "Right Arm", "UpperTorso", "Torso"},
+        ["Left_leg"] = {"LeftFoot", "LeftLowerLeg", "LeftUpperLeg", "Left Leg", "LowerTorso", "Torso"},
+        ["Right_leg"] = {"RightFoot", "RightLowerLeg", "RightUpperLeg", "Right Leg", "LowerTorso", "Torso"},
+    }
+
+    -- First preserve the existing rig-aware lookup, but protect against incomplete maps.
+    local ok, mapped = pcall(function() return API.pickNamedPart(char, requested) end)
+    if ok and mapped and mapped:IsA("BasePart") then return mapped end
+
+    -- Then try common direct names and rig aliases without assuming a limb map exists.
+    local names = aliases[requested] or {requested, "Head", "UpperTorso", "Torso", "HumanoidRootPart"}
+    for _, name in ipairs(names) do
+        local part = char:FindFirstChild(name)
+        if part and part:IsA("BasePart") then return part end
+    end
+    return char:FindFirstChildWhichIsA("BasePart")
 end
 
 
@@ -4496,27 +4522,25 @@ API.toScreen = function(part)
 end
 
 API.hasLineOfSight = function(part)
+    if not part or not part:IsA("BasePart") then return false end
     local char = Player.Local.Character
-    if not char then return false end
-
     local targetModel = part:FindFirstAncestorOfClass("Model")
-    if not targetModel then return false end
+    local cam = workspace.CurrentCamera or Player.Camera
+    if not char or not targetModel or not cam then return false end
 
     local params = RaycastParams.new()
     params.FilterType = Enum.RaycastFilterType.Exclude
-    params.FilterDescendantsInstances = { char, targetModel }
+    params.FilterDescendantsInstances = { char, cam }
     params.IgnoreWater = true
+    params.RespectCanCollide = true
 
-    local cam = workspace.CurrentCamera or Player.Camera
-    if not cam then return false end
     local origin = cam.CFrame.Position
     local result = workspace:Raycast(origin, part.Position - origin, params)
-
     if not result then return true end
-
-    local hit = result.Instance
-    return hit.Transparency >= 0.95 or not hit.CanCollide
+    if result.Instance:IsDescendantOf(targetModel) then return true end
+    return result.Instance.Transparency >= 0.95 or not result.Instance.CanCollide
 end
+
 
 API.isTargetVisible = function(targetPart)
     if not targetPart then return false end
@@ -4604,8 +4628,11 @@ API.getTargetRageMode = function()
     local camera = workspace.CurrentCamera or Player.Camera
     if not camera then return nil end
     local center = API.getAimReferencePoint()
-    local players = API.getCandidates()
+    local players = Services.Players:GetPlayers()
     for _, plr in ipairs(players) do
+        if plr == Player.Local or not API.isEnemy(plr) or not API.isAlive(plr) then continue end
+        -- Do not rely on the shared candidate cache or game-specific immunity
+        -- attributes for target discovery; some experiences set these differently.
         local part = API.getTargetPart(plr)
         if not part or not part:IsA("BasePart") then continue end
         local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
@@ -4631,8 +4658,11 @@ API.getTarget = function()
     local selector = SELECTORS[ENV.CONFIG.selectType] or SELECTORS.closest
     local entries  = {}
 
-    local players = API.getCandidates()
+    local players = Services.Players:GetPlayers()
     for _, plr in ipairs(players) do
+        if plr == Player.Local or not API.isEnemy(plr) or not API.isAlive(plr) then continue end
+        -- Acquire candidates directly, as AimAssist V4 does, so a stale/shared
+        -- candidate cache or an experience-specific immunity flag cannot hide them.
         local part = API.getTargetPart(plr)
         if not part then continue end
         local screenPos, visible = API.toScreen(part)
