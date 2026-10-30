@@ -1855,8 +1855,10 @@ function UILib:Window(config)
 				cb = cb or function() end; min, max = min or 0, max or 100
 				local flag = mkFlag(text, sopts)
 				local f = line(30)
-				local l = lbl(f, text, 0); l.Size=UDim2.new(1,-50,0,15)
-				local val = new("TextLabel", { Name="AF", BackgroundTransparency=1, AnchorPoint=Vector2.new(1,0), Position=UDim2.new(1,0,0,0), Size=UDim2.new(0,50,0,15), Font=T.FontMed, Text="0", TextColor3=aLo, TextSize=12, TextXAlignment=Enum.TextXAlignment.Right, Parent=f })
+				local l = lbl(f, text, 0); l.Size=UDim2.new(1,-72,0,18)
+				-- Editable numeric field: allows precise values without dragging the slider.
+				local val = new("TextBox", { Name="SliderValueInput", BackgroundColor3=T.Element, BackgroundTransparency=0.08, BorderSizePixel=0, AnchorPoint=Vector2.new(1,0), Position=UDim2.new(1,0,0,-2), Size=UDim2.new(0,66,0,19), Font=T.FontMed, Text="0", PlaceholderText="Value", ClearTextOnFocus=false, TextColor3=aLo, PlaceholderColor3=T.Muted, TextSize=11, TextXAlignment=Enum.TextXAlignment.Center, TextYAlignment=Enum.TextYAlignment.Center, TextEditable=true, Parent=f })
+				corner(val, 4); skinTag(val, "element")
 				local track = new("Frame", { BackgroundColor3=T.Off, BorderSizePixel=0, Position=UDim2.new(0,0,0,20), Size=UDim2.new(1,0,0,4), Parent=f })
 				corner(track, 2); skinTag(track, "off")
 				local fill = new("Frame", { BackgroundColor3=Color3.new(1,1,1), BorderSizePixel=0, Size=UDim2.new(0,0,1,0), Parent=track }); corner(fill, 2); accentGrad(fill, 0)
@@ -1895,13 +1897,28 @@ function UILib:Window(config)
 				function element:Set(v, skip)
 					local dec
 					v, dec = shape(tonumber(v) or min)
-					element.Value=v; Window.Flags[flag]=v; val.Text=display(v, dec)
+					element.Value=v; Window.Flags[flag]=v; val.Text=(dec <= 0 and string.format("%d", v) or string.format("%." .. dec .. "f", v))
 					local a = (max-min)==0 and 0 or (v-min)/(max-min)
 					tween(fill, TweenInfo.new(0.16, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size=UDim2.new(a,0,1,0) })
 					if not skip then val.TextSize = 13; tween(val, E_SNAP, { TextSize = 12 }) end
 					if not skip then task.spawn(cb, v) end
 				end
 				function element:Get() return element.Value end
+				val.Focused:Connect(function()
+					val.Text = tostring(element.Value)
+					tween(val, E_FAST, {BackgroundColor3=T.ElementHov})
+				end)
+				val.FocusLost:Connect(function()
+					tween(val, E_FAST, {BackgroundColor3=T.Element})
+					local raw = tostring(val.Text or ""):gsub(",", "."):match("^%s*(.-)%s*$")
+					local numberValue = tonumber(raw)
+					if numberValue then
+						element:Set(numberValue)
+						if element._fireCommit then element._fireCommit(element.Value) end
+					else
+						element:Set(element.Value, true)
+					end
+				end)
 				local drag = false
 				local function upd(i)
 					local rel = (i.Position.X - track.AbsolutePosition.X)/track.AbsoluteSize.X
@@ -1911,7 +1928,7 @@ function UILib:Window(config)
 				end
 				local knobGlow = new("Frame", { BackgroundColor3=Color3.new(1,1,1), BackgroundTransparency=1, BorderSizePixel=0, AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.fromScale(0.5,0.5), Size=UDim2.new(0,20,0,20), ZIndex=1, Parent=knob }); corner(knobGlow, 10)
 				track.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drag=true; tween(knob, E_SNAP, {Size=UDim2.new(0,14,0,14)}); tween(knobGlow, E_FAST, {BackgroundTransparency=0.75}); upd(i) end end)
-				local hit = new("TextButton", { BackgroundTransparency=1, Position=UDim2.new(0,0,0,16), Size=UDim2.new(1,0,0,12), Text="", Parent=f })
+				local hit = new("TextButton", { BackgroundTransparency=1, Position=UDim2.new(0,0,0,19), Size=UDim2.new(1,0,0,9), Text="", Parent=f })
 				hit.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drag=true; tween(knob, E_FAST, {Size=UDim2.new(0,13,0,13)}); upd(i) end end)
 				UIS_.InputChanged:Connect(function(i) if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then upd(i) end end)
 				UIS_.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then if drag and element._fireCommit then element._fireCommit(element.Value) end drag=false; tween(knob, E_SNAP, {Size=UDim2.new(0,9,0,9)}); tween(knobGlow, E_FAST, {BackgroundTransparency=1}) end end)
@@ -3989,11 +4006,11 @@ API.createFOVCircle = function()
     fovCircle.Position             = UDim2.new(0.5,0,0.5,0)
     fovCircle.AnchorPoint          = Vector2.new(0.5,0.5)
     fovCircle.BackgroundColor3     = Color3.fromRGB(0,255,0)
-    fovCircle.BackgroundTransparency = 0.7
+    fovCircle.BackgroundTransparency = 1
     fovCircle.BorderSizePixel      = 0
     fovCircle.Parent               = screenGui
     local corner  = Instance.new("UICorner");  corner.CornerRadius = UDim.new(1,0); corner.Parent = fovCircle
-    local stroke  = Instance.new("UIStroke");  stroke.Color = Color3.fromRGB(0,255,0); stroke.Thickness = 2; stroke.Parent = fovCircle
+    local stroke  = Instance.new("UIStroke");  stroke.Color = Color3.fromRGB(0,255,0); stroke.Thickness = 2; stroke.Transparency = 0; stroke.Parent = fovCircle
     return fovCircle
 end
 
@@ -5426,8 +5443,10 @@ Services.RunService.RenderStepped:Connect(function()
             local diameter = ENV.CONFIG.FOVRadius * 2
             FOVState.circle.Position             = UDim2.new(0,ref.X,0,ref.Y)
             FOVState.circle.Size                 = UDim2.new(0,diameter,0,diameter)
-            FOVState.circle.BackgroundTransparency = 1 - ENV.CONFIG.fovCircleAlpha
+            -- Outline-only FOV: keep the circle interior fully transparent.
+            FOVState.circle.BackgroundTransparency = 1
             local stroke = FOVState.circle:FindFirstChildOfClass("UIStroke")
+            if stroke then stroke.Transparency = 1 - math.clamp(ENV.CONFIG.fovCircleAlpha, 0, 1) end
             if ENV.CONFIG.fovCircleRGB then
                 local color = Color3.fromHSV(FOVState.hueOffset, 0.8, 1)
                 FOVState.circle.BackgroundColor3=color; if stroke then stroke.Color=color end
